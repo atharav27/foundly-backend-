@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: foundly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: foundly
+      POSTGRES_PASSWORD: foundly_password
+      POSTGRES_DB: foundly
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - foundly-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: foundly-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    networks:
+      - foundly-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: foundly-app
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://foundly:foundly_password@postgres:5432/foundly?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - foundly-network
+    command: sh -c "yarn migrate:prod && node dist/main"
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  foundly-network:
+    driver: bridge
